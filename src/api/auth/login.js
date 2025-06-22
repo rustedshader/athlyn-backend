@@ -1,20 +1,24 @@
 const { Router } = require("express");
 const { User, Profile, sequelize } = require("../../database/models");
 const bcrypt = require("bcrypt");
+const { loginSchema } = require("../../schemas/auth-schema");
 
 const router = Router();
 
 // Added Transactions -> https://sequelize.org/docs/v6/other-topics/transactions/#unmanaged-transactions
 
-router.post("/", async (req, res) => {
+router.post("/login", async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const validationResult = loginSchema.safeParse(req.body);
 
-    if (!username || !password) {
+    if (!validationResult.success) {
       return res.status(400).json({
-        error: "Username and password are required",
+        error: "Validation failed",
+        details: validationResult.error.format(),
       });
     }
+
+    const { username, password } = validationResult.data;
 
     const user = await User.findOne({ where: { username } });
     if (!user) {
@@ -72,13 +76,13 @@ router.post("/", async (req, res) => {
       });
     } catch (error) {
       await transaction.rollback();
-      console.error("Error creating profile:", error);
+      console.error("Error: Error creating profile:", error);
       return res.status(500).json({
         error: "Internal server error",
       });
     }
   } catch (error) {
-    console.error("Error logging in user:", error);
+    console.error("Error: Error logging in user:", error);
     return res.status(500).json({
       error: "Internal server error",
     });

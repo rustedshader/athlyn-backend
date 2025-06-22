@@ -1,9 +1,10 @@
 {
   "name": "athlyn-backend",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "src/server.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "dev": "nodemon src/server.js",
     "start": "node src/server.js"
   },
   "author": "",
@@ -15,7 +16,8 @@
     "express": "^5.1.0",
     "pg": "^8.16.2",
     "pg-hstore": "^2.3.4",
-    "sequelize": "^6.37.7"
+    "sequelize": "^6.37.7",
+    "zod": "^3.25.67"
   },
   "devDependencies": {
     "sequelize-cli": "^6.6.3"

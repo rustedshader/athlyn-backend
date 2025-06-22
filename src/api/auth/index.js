@@ -4,7 +4,7 @@ const loginRouter = require("./login");
 
 const router = Router();
 
-router.use("/signup", signupRouter);
-router.use("/login", loginRouter);
+router.use(signupRouter);
+router.use(loginRouter);
 
 module.exports = router;

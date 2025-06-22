@@ -1,102 +1,48 @@
 const { Router } = require("express");
 const {
   Profile,
-  User,
   Certification,
   Achievements,
   sequelize,
 } = require("../../database/models");
 
-//TODO: Refactor Tommorow
-
 const router = Router();
 
-router.get(":id", async (req, res) => {
-  const transaction = await sequelize.transaction();
+// TODO: Test and refactor Update Athlete Profile according to need.
+
+router.get("/:id", async (req, res) => {
   try {
     const { id } = req.params;
 
     const profile = await Profile.findOne({
       where: { userId: id },
-      include: [
-        {
-          model: User,
-          attributes: [
-            "id",
-            "username",
-            "firstName",
-            "lastName",
-            "email",
-            "mobileNumber",
-            "createdAt",
-            "updatedAt",
-          ],
-        },
-        {
-          model: Certification,
-          attributes: [
-            "id",
-            "fileUrl",
-            "title",
-            "issuedBy",
-            "createdAt",
-            "updatedAt",
-          ],
-        },
-        {
-          model: Achievements,
-          attributes: [
-            "id",
-            "title",
-            "description",
-            "date",
-            "createdAt",
-            "updatedAt",
-          ],
-        },
-      ],
-      transaction,
     });
 
     if (!profile) {
-      await transaction.rollback();
       return res.status(404).json({
         error: "Athlete profile not found",
       });
     }
 
-    await transaction.commit();
-
     return res.status(200).json({
-      id: profile.userId,
-      username: profile.User.username,
-      firstName: profile.User.firstName,
-      lastName: profile.User.lastName,
-      email: profile.User.email,
-      mobileNumber: profile.User.mobileNumber,
-      profile: {
-        id: profile.id,
-        sports: profile.sports,
-        bio: profile.bio,
-        age: profile.age,
-        location: profile.location,
-        stats: profile.stats,
-        certifications: profile.Certifications,
-        achievements: profile.Achievements,
-      },
-      createdAt: profile.User.createdAt,
-      updatedAt: profile.User.updatedAt,
+      id: profile.id,
+      sports: profile.sports,
+      bio: profile.bio,
+      age: profile.age,
+      location: profile.location,
+      stats: profile.stats,
+      certifications: profile.Certifications,
+      achievements: profile.Achievements,
     });
   } catch (error) {
-    await transaction.rollback();
-    console.error("Error retrieving athlete profile:", error);
+    console.error("Error: Error retrieving athlete profile:", error);
     return res.status(500).json({
       error: "Internal server error",
     });
   }
 });
 
-router.put(":id", async (req, res) => {
+router.put("/:id", async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
     const { id } = req.params;
@@ -172,19 +118,6 @@ router.put(":id", async (req, res) => {
       where: { userId: id },
       include: [
         {
-          model: User,
-          attributes: [
-            "id",
-            "username",
-            "firstName",
-            "lastName",
-            "email",
-            "mobileNumber",
-            "createdAt",
-            "updatedAt",
-          ],
-        },
-        {
           model: Certification,
           attributes: [
             "id",
@@ -207,32 +140,23 @@ router.put(":id", async (req, res) => {
           ],
         },
       ],
-      transaction: await sequelize.transaction(),
     });
 
     return res.status(200).json({
-      id: updatedProfile.userId,
-      username: updatedProfile.User.username,
-      firstName: updatedProfile.User.firstName,
-      lastName: updatedProfile.User.lastName,
-      email: updatedProfile.User.email,
-      mobileNumber: updatedProfile.User.mobileNumber,
-      profile: {
-        id: updatedProfile.id,
-        sports: updatedProfile.sports,
-        bio: updatedProfile.bio,
-        age: updatedProfile.age,
-        location: updatedProfile.location,
-        stats: updatedProfile.stats,
-        certifications: updatedProfile.Certifications,
-        achievements: updatedProfile.Achievements,
-      },
-      createdAt: updatedProfile.User.createdAt,
-      updatedAt: updatedProfile.User.updatedAt,
+      id: updatedProfile.id,
+      sports: updatedProfile.sports,
+      bio: updatedProfile.bio,
+      age: updatedProfile.age,
+      location: updatedProfile.location,
+      stats: updatedProfile.stats,
+      certifications: updatedProfile.Certifications,
+      achievements: updatedProfile.Achievements,
+      createdAt: updatedProfile.createdAt,
+      updatedAt: updatedProfile.updatedAt,
     });
   } catch (error) {
     await transaction.rollback();
-    console.error("Error updating athlete profile:", error);
+    console.error("Error: updating athlete profile:", error);
     return res.status(500).json({
       error: "Internal server error",
     });

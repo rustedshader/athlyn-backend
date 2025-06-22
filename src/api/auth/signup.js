@@ -1,26 +1,27 @@
 const { Router } = require("express");
 const { User, sequelize } = require("../../database/models");
 const bcrypt = require("bcrypt");
+const { signupSchema } = require("../../schemas/auth-schema");
 
 const router = Router();
 
-// Bcrypt -> https://www.npmjs.com/package/bcrypt
 const saltRounds = 10;
 
-// Added Transactions -> https://sequelize.org/docs/v6/other-topics/transactions/#unmanaged-transactions
-
-router.post("/", async (req, res) => {
+router.post("/signup", async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
-    const { username, firstName, lastName, email, mobileNumber, password } =
-      req.body;
+    const validationResult = signupSchema.safeParse(req.body);
 
-    if (!username || !firstName || !lastName || !password) {
+    if (!validationResult.success) {
       await transaction.rollback();
       return res.status(400).json({
-        error: "Username, firstName, lastName, and password are required",
+        error: "Validation failed",
+        details: validationResult.error.format(),
       });
     }
+
+    const { username, firstName, lastName, email, mobileNumber, password } =
+      validationResult.data;
 
     const existingUser = await User.findOne({
       where: { username },
@@ -41,15 +42,17 @@ router.post("/", async (req, res) => {
       });
     }
 
-    const existingMobile = await User.findOne({
-      where: { mobileNumber },
-      transaction,
-    });
-    if (existingMobile) {
-      await transaction.rollback();
-      return res.status(409).json({
-        error: "Mobile Number already exists",
+    if (mobileNumber) {
+      const existingMobile = await User.findOne({
+        where: { mobileNumber },
+        transaction,
       });
+      if (existingMobile) {
+        await transaction.rollback();
+        return res.status(409).json({
+          error: "Mobile Number already exists",
+        });
+      }
     }
 
     const hash = await bcrypt.hash(password, saltRounds);
@@ -81,14 +84,14 @@ router.post("/", async (req, res) => {
       });
     } catch (error) {
       await transaction.rollback();
-      console.error("Error creating user:", error);
+      console.error("Error: Error creating user:", error);
       return res.status(500).json({
         error: "Internal server error",
       });
     }
   } catch (error) {
     await transaction.rollback();
-    console.error("Error creating user:", error);
+    console.error("Error: Error creating user:", error);
     return res.status(500).json({
       error: "Internal server error",
     });
