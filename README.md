@@ -1,6 +1,6 @@
 # Athlyn Backend 
 
-This is the repository servers as code for the backend of Athlyn. 
+This repository serves as code for the backend of Athlyn. 
 
 ## Directory Strucuture
 
