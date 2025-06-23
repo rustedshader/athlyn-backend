@@ -2,6 +2,7 @@ const { Router } = require("express");
 const { User, Profile, sequelize } = require("../../database/models");
 const bcrypt = require("bcrypt");
 const { loginSchema } = require("../../schemas/auth-schema");
+const { generateAccessToken } = require("../../security/jwt");
 
 const router = Router();
 
@@ -54,6 +55,8 @@ router.post("/login", async (req, res) => {
         );
       }
 
+      const jwt_access_token = generateAccessToken(username);
+
       await transaction.commit();
 
       return res.status(200).json({
@@ -73,6 +76,7 @@ router.post("/login", async (req, res) => {
           location: profile.location,
           stats: profile.stats,
         },
+        access_token: jwt_access_token,
       });
     } catch (error) {
       await transaction.rollback();

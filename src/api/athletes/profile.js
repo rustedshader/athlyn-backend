@@ -5,12 +5,13 @@ const {
   Achievements,
   sequelize,
 } = require("../../database/models");
+const { authenticateToken } = require("../../security/jwt");
 
 const router = Router();
 
 // TODO: Test and refactor Update Athlete Profile according to need.
 
-router.get("/:id", async (req, res) => {
+router.get("/:id", authenticateToken, async (req, res) => {
   try {
     const { id } = req.params;
 
