@@ -6,17 +6,46 @@ const {
   sequelize,
 } = require("../../database/models");
 const { authenticateToken } = require("../../security/jwt");
+const { z } = require("zod");
+const {
+  addStatsSchema,
+  addAchievementsSchema,
+  ProfileSchema,
+  FileSchema,
+} = require("../../schemas/athletes-schema");
 
 const router = Router();
 
-// TODO: Test and refactor Update Athlete Profile according to need.
-
-router.get("/:id", authenticateToken, async (req, res) => {
+router.get("/:userId", authenticateToken, async (req, res) => {
   try {
-    const { id } = req.params;
+    const { userId } = req.params;
 
     const profile = await Profile.findOne({
-      where: { userId: id },
+      where: { userId: userId },
+      include: [
+        {
+          model: Certification,
+          attributes: [
+            "id",
+            "fileUrl",
+            "title",
+            "issuedBy",
+            "createdAt",
+            "updatedAt",
+          ],
+        },
+        {
+          model: Achievements,
+          attributes: [
+            "id",
+            "title",
+            "description",
+            "date",
+            "createdAt",
+            "updatedAt",
+          ],
+        },
+      ],
     });
 
     if (!profile) {
@@ -43,15 +72,87 @@ router.get("/:id", authenticateToken, async (req, res) => {
   }
 });
 
-router.put("/:id", async (req, res) => {
+router.put("/:userId", authenticateToken, async (req, res) => {
   const transaction = await sequelize.transaction();
   try {
-    const { id } = req.params;
+    const { userId } = req.params;
+
     const { sports, bio, age, location, stats, certifications, achievements } =
       req.body;
 
+    const profileValidation = ProfileSchema.safeParse({
+      sports,
+      bio,
+      age,
+      location,
+    });
+    if (!profileValidation.success) {
+      await transaction.rollback();
+      return res.status(400).json({
+        error: "Validation failed for profile fields",
+        details: profileValidation.error.format(),
+      });
+    }
+
+    if (stats !== undefined) {
+      const statsValidation = addStatsSchema.safeParse({ stats });
+      if (!statsValidation.success) {
+        await transaction.rollback();
+        return res.status(400).json({
+          error: "Validation failed for stats",
+          details: statsValidation.error.format(),
+        });
+      }
+    }
+
+    if (certifications !== undefined) {
+      if (!Array.isArray(certifications)) {
+        await transaction.rollback();
+        return res.status(400).json({
+          error: "Certifications must be an array",
+        });
+      }
+      for (const cert of certifications) {
+        const certValidation = FileSchema.safeParse({
+          userId: userId,
+          title: cert.title,
+          issuedBy: cert.issuedBy,
+          url: cert.fileUrl,
+          originalName: cert.originalName,
+          mimeType: cert.mimeType,
+          size: cert.size,
+        });
+        if (!certValidation.success) {
+          await transaction.rollback();
+          return res.status(400).json({
+            error: "Validation failed for certifications",
+            details: certValidation.error.format(),
+          });
+        }
+      }
+    }
+
+    if (achievements !== undefined) {
+      if (!Array.isArray(achievements)) {
+        await transaction.rollback();
+        return res.status(400).json({
+          error: "Achievements must be an array",
+        });
+      }
+      for (const ach of achievements) {
+        const achValidation = addAchievementsSchema.safeParse(ach);
+        if (!achValidation.success) {
+          await transaction.rollback();
+          return res.status(400).json({
+            error: "Validation failed for achievements",
+            details: achValidation.error.format(),
+          });
+        }
+      }
+    }
+
     const profile = await Profile.findOne({
-      where: { userId: id },
+      where: { userId: userId }, // Fix: Use userId instead of id
       transaction,
     });
 
@@ -67,11 +168,22 @@ router.put("/:id", async (req, res) => {
     if (bio !== undefined) updatedProfileFields.bio = bio;
     if (age !== undefined) updatedProfileFields.age = age;
     if (location !== undefined) updatedProfileFields.location = location;
-    if (stats !== undefined) updatedProfileFields.stats = stats;
+    if (stats !== undefined) {
+      const currentStats = Array.isArray(profile.stats) ? profile.stats : [];
+      const newStats = stats;
+      const totalStats = [...currentStats, ...newStats];
+      if (totalStats.length > 50) {
+        await transaction.rollback();
+        return res.status(400).json({
+          error: "Total stats cannot exceed 50 entries",
+        });
+      }
+      updatedProfileFields.stats = totalStats;
+    }
 
     await profile.update(updatedProfileFields, { transaction });
 
-    if (certifications && Array.isArray(certifications)) {
+    if (certifications !== undefined) {
       await Certification.destroy({
         where: { profileId: profile.id },
         transaction,
@@ -80,7 +192,7 @@ router.put("/:id", async (req, res) => {
       const certificationPromises = certifications.map((cert) =>
         Certification.create(
           {
-            userId: id,
+            userId: userId,
             profileId: profile.id,
             fileUrl: cert.fileUrl,
             title: cert.title,
@@ -92,7 +204,7 @@ router.put("/:id", async (req, res) => {
       await Promise.all(certificationPromises);
     }
 
-    if (achievements && Array.isArray(achievements)) {
+    if (achievements !== undefined) {
       await Achievements.destroy({
         where: { profileId: profile.id },
         transaction,
@@ -101,7 +213,7 @@ router.put("/:id", async (req, res) => {
       const achievementPromises = achievements.map((ach) =>
         Achievements.create(
           {
-            userId: id,
+            userId: userId,
             profileId: profile.id,
             title: ach.title,
             description: ach.description,
@@ -116,7 +228,7 @@ router.put("/:id", async (req, res) => {
     await transaction.commit();
 
     const updatedProfile = await Profile.findOne({
-      where: { userId: id },
+      where: { userId: userId }, // Fix: Use userId instead of id
       include: [
         {
           model: Certification,
@@ -141,6 +253,7 @@ router.put("/:id", async (req, res) => {
           ],
         },
       ],
+      // Remove transaction since it's already committed
     });
 
     return res.status(200).json({
